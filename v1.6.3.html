@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="vi">
+<!-- 
+    MAGIC CARDS v1.6.3 - PC OPTIMIZATION & LAYOUT FIX
+    - Logic: Time-Sync cố định Phase 0.
+    - Logic Update: Kích hoạt cuộn chuột ngang cho bộ bài (PC Friendly).
+    - UI: Khôi phục biểu tượng quân cờ Pawn (P.1), Rook (P.2), Queen (P.3).
+    - Layout: Đẩy cao khu vực bài trên tay để không bị khuất dưới đáy màn hình.
+    - Battle: Hiệu ứng Rút bài thực hiện trong giai đoạn Giao Tranh.
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Cards v1.6.3 Backup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@500;700&display=swap');
+
+        /* --- GLOBAL --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #020617; 
+            background-image: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #020617 100%);
+            color: white; overflow: hidden; user-select: none;
+            height: 100vh; width: 100vw;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        #game-container {
+            position: relative; width: 100%; height: 100%; max-width: 480px;
+            background-color: #0f0518;
+            background-image: radial-gradient(circle at center, #2e1065 0%, #000000 120%);
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border-left: 1px solid #334155; border-right: 1px solid #334155;
+        }
+
+        .font-magic { font-family: 'Cinzel', serif; }
+
+        /* --- CARD --- */
+        .card {
+            width: 72px; height: 100px; border-radius: 8px; border: 2px solid; 
+            background: linear-gradient(160deg, #1f2937, #111827);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: transform 0.2s, margin 0.2s;
+            position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.6); z-index: 10;
+            flex-shrink: 0; border-color: #4b5563;
+        }
+        .card:hover { transform: translateY(-20px) !important; z-index: 100 !important; border-color: #fbbf24 !important; margin-right: 10px; }
+        .card.selected { border-color: #fbbf24 !important; transform: translateY(-20px) !important; box-shadow: 0 0 15px #fbbf24; z-index: 90; }
+        .card.disabled { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
+        
+        .bg-char-rock { background: linear-gradient(160deg, #2a0a0a, #0f0505); } 
+        .bg-char-paper { background: linear-gradient(160deg, #0a0e2a, #05050f); } 
+        .bg-char-scissors { background: linear-gradient(160deg, #051a0a, #020f05); } 
+        .bg-char-none { background: linear-gradient(160deg, #1f1f1f, #0a0a0a); } 
+        .bar-rock { background-color: rgba(220, 38, 38, 0.8); border-top: 1px solid #ef4444; }
+        .bar-paper { background-color: rgba(37, 99, 235, 0.8); border-top: 1px solid #3b82f6; }
+        .bar-scissors { background-color: rgba(22, 163, 74, 0.8); border-top: 1px solid #22c55e; }
+
+        .rarity-common { border-color: #9ca3af; } 
+        .rarity-rare { border-color: #22c55e; box-shadow: 0 0 5px rgba(34, 197, 94, 0.3); } 
+        .rarity-legendary { 
+            border-color: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); 
+            animation: glow 1.5s infinite alternate;
+        }
+        @keyframes glow { from { box-shadow: 0 0 5px #f59e0b; } to { box-shadow: 0 0 15px #f59e0b; } }
+
+        .card-back {
+            width: 60px; height: 84px; border-radius: 6px; border: 2px solid #475569;
+            background: repeating-linear-gradient(45deg, #1e293b, #1e293b 5px, #334155 5px, #334155 10px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5); margin: 0 -15px; flex-shrink: 0;
+        }
+
+        /* --- SLOT WITH CHESS ICONS --- */
+        .slot {
+            width: 78px; height: 106px; border: 2px dashed #4b5563; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background-color: rgba(255,255,255,0.03); position: relative; transition: 0.3s;
+        }
+        .slot-label {
+            position: absolute; bottom: 5px; width: 100%; text-align: center;
+            font-size: 0.6rem; font-weight: bold; color: #6b7280; z-index: 0; pointer-events: none;
+        }
+        .slot .card { width: 100%; height: 100%; margin: 0; transform: none !important; border-radius: 8px; z-index: 1; }
+        .active-turn-slot {
+            border: 2px solid #fbbf24; background-color: rgba(251, 191, 36, 0.15);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.4); animation: pulse-border 0.8s infinite; cursor: pointer; z-index: 5;
+        }
+        @keyframes pulse-border { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        .common-mark::after { content: '\f443'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: -12px; right: -5px; color: #9ca3af; font-size: 0.9rem; opacity: 0.7; }
+        .rare-mark::after { content: '\f447'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: -12px; right: -5px; color: #22c55e; font-size: 1rem; }
+        .legendary-mark::after { content: '\f445'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: -15px; right: -5px; color: #f59e0b; font-size: 1.2rem; }
+
+        /* --- HAND --- */
+        #player-hand {
+            display: flex; align-items: flex-end; padding: 0 1.5rem;
+            height: 9.5rem; width: 100%; z-index: 20; 
+            overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+            cursor: grab;
+        }
+        #player-hand:active { cursor: grabbing; }
+        #player-hand::-webkit-scrollbar { display: none; }
+        #enemy-hand { overflow: hidden; justify-content: center; padding-left: 20px; padding-right: 20px; }
+
+        /* --- TIMER --- */
+        .timer-container { position: relative; width: 48px; height: 48px; }
+        .timer-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .timer-circle { fill: none; stroke-width: 8; stroke: #334155; }
+        .timer-path { fill: none; stroke-width: 8; stroke-linecap: round; stroke-dasharray: 126; stroke-dashoffset: 0; transition: 0.1s linear; }
+        .color-green { stroke: #22c55e; } .color-red { stroke: #ef4444; }
+
+        /* --- FX --- */
+        .damage-float { position: absolute; font-weight: 900; font-size: 1.8rem; animation: floatUp 1.5s ease-out forwards; z-index: 100; text-shadow: 2px 2px 0 #000; width: 100%; text-align: center; top: -30px; }
+        @keyframes floatUp { to { transform: translateY(-60px); opacity: 0; } }
+        .active-spell { transform: scale(1.1) !important; z-index: 100; box-shadow: 0 0 20px #d946ef; border-color: #d946ef; }
+        .shake-screen { animation: shakeAnim 0.3s ease-out; }
+        @keyframes shakeAnim { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(-2px, 2px); } 75% { transform: translate(2px, -2px); } }
+        .halo-screen { animation: haloAnim 0.8s ease-out; }
+        @keyframes haloAnim { 0% { box-shadow: inset 0 0 0px rgba(255, 215, 0, 0); } 30% { box-shadow: inset 0 0 100px rgba(255, 215, 0, 0.3); } 100% { box-shadow: inset 0 0 0px rgba(255, 215, 0, 0); } }
+        .heal-particle { position: absolute; width: 6px; height: 6px; background: #4ade80; border-radius: 50%; pointer-events: none; z-index: 150; box-shadow: 0 0 8px #22c55e; animation: healRise 1.5s ease-out forwards; }
+        @keyframes healRise { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(0); } }
+        
+        .empower-aura { position: absolute; inset: -10px; border-radius: 12px; border: 3px solid #ef4444; box-shadow: 0 0 30px #ef4444, inset 0 0 20px #ef4444; z-index: 10; pointer-events: none; opacity: 0; animation: empowerPulse 0.8s ease-out forwards; }
+        @keyframes empowerPulse { 0% { opacity: 0; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.3); } }
+        
+        .empower-overlay {
+            position: absolute; inset: 0; pointer-events: none; z-index: 20; border-radius: 8px;
+            background: rgba(220, 38, 38, 0.3);
+            animation: redPulse 1s infinite alternate;
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.5);
+        }
+        @keyframes redPulse { 0% { opacity: 0.3; } 100% { opacity: 0.7; } }
+
+        .shield-overlay { position: absolute; inset: -4px; border-radius: 12px; border: 2px solid gold; background: rgba(255,215,0,0.15); z-index: 20; animation: pulseShield 1s infinite; pointer-events: none; }
+        
+        /* --- SLASH FX FIX: Static Origin --- */
+        .slash-container { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; z-index: 500; display: flex; align-items: center; justify-content: center;
+        }
+        .slash-line { 
+            position: absolute; height: 2px; background: #ef4444; 
+            box-shadow: 0 0 15px #ef4444, 0 0 5px white; 
+            width: 0%; border-radius: 4px; opacity: 1; 
+            transform: rotate(-15deg);
+            animation: slashAnim 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards; 
+        }
+        @keyframes slashAnim { 
+            0% { width: 0%; opacity: 1; } 
+            30% { width: 110%; opacity: 1; } 
+            100% { width: 110%; opacity: 0; transform: rotate(-15deg); } 
+        }
+
+        .curse-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 20; overflow: hidden; border-radius: 8px; background: rgba(46, 16, 101, 0.4); animation: darkenFlash 0.5s ease-out; }
+        @keyframes darkenFlash { 0% { background: rgba(46, 16, 101, 0); } 50% { background: rgba(46, 16, 101, 0.7); } 100% { background: rgba(46, 16, 101, 0.4); } }
+        .curse-line {
+            position: absolute; top: -100%; width: 3px; background: #c084fc;
+            height: 60%; opacity: 0.9; box-shadow: 0 0 8px #a855f7;
+            animation: curseDrop 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes curseDrop { to { top: 150%; opacity: 0; } }
+
+        #start-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; }
+        .start-text { font-size: 4rem; font-weight: bold; color: #fbbf24; text-shadow: 0 0 30px #fbbf24; animation: popIn 0.5s forwards; opacity: 0; transform: scale(0.5); }
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+        #modal { position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 9998; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- LAYERS -->
+        <div id="start-overlay"><div id="start-text" class="start-text">READY?</div></div>
+
+        <!-- HEADER -->
+        <div class="h-16 bg-black/80 relative flex items-center justify-center px-6 border-b border-purple-900 z-30 shrink-0">
+            <h1 class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 font-magic text-3xl text-yellow-500 tracking-wider drop-shadow-xl whitespace-nowrap">
+                MAGIC CARDS
+            </h1>
+        </div>
+
+        <!-- BATTLEFIELD -->
+        <div class="flex-1 flex flex-col justify-between overflow-hidden">
+            <!-- ENEMY -->
+            <div class="flex-1 flex flex-col items-center justify-start pt-2 relative" id="enemy-zone">
+                <div id="enemy-hand" class="flex justify-center -mb-8 transform scale-75 opacity-70 z-0 h-20 w-full overflow-hidden"></div>
+                <div class="flex flex-col items-start mt-6 relative z-10">
+                    <div class="w-fit flex justify-start items-center gap-2 mb-2 ml-6 relative" id="enemy-hearts-container">
+                        <span class="text-[0.6rem] text-red-400 font-bold uppercase tracking-widest">ĐỐI THỦ</span>
+                        <div class="flex gap-1 items-center" id="enemy-hearts"></div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-xl">
+                        <div class="flex gap-6">
+                            <div class="flex gap-2">
+                                <div class="slot common-mark" id="e-spell1"><span class="slot-label">P.1</span></div>
+                                <div class="slot rare-mark border-green-500/30" id="e-spell2"><span class="slot-label">P.2</span></div>
+                                <div class="slot legendary-mark border-orange-500/30" id="e-spell3"><span class="slot-label">P.3</span></div>
+                            </div>
+                            <div class="slot border-red-500/30" id="e-char">
+                                <span class="absolute -top-5 text-[0.6rem] text-red-400 font-bold">TƯỚNG</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TIMER -->
+            <div class="h-16 flex flex-col items-center justify-center z-20 shrink-0 my-2">
+                <div class="timer-container">
+                    <svg class="timer-svg" viewBox="0 0 48 48">
+                        <circle class="timer-circle" cx="24" cy="24" r="20"></circle>
+                        <path id="timer-path" class="timer-path color-green" d="M 24, 24 m -20, 0 a 20,20 0 1,0 40,0 a 20,20 0 1,0 -40,0"></path>
+                    </svg>
+                </div>
+                <div id="phase-badge" class="mt-1 px-3 py-0.5 bg-black/80 rounded border border-yellow-500 text-yellow-400 text-[0.6rem] font-bold uppercase tracking-widest shadow-lg">
+                    CHUẨN BỊ...
+                </div>
+            </div>
+
+            <!-- PLAYER -->
+            <div class="flex-1 flex flex-col justify-end items-center pb-8 relative" id="player-zone">
+                 <div class="flex flex-col items-start mb-6 relative z-10">
+                    <div class="w-fit flex justify-start items-center gap-2 mb-2 ml-6 relative" id="player-hearts-container">
+                        <span class="text-[0.6rem] text-blue-400 font-bold uppercase tracking-widest">BẠN</span>
+                        <div class="flex gap-1 items-center" id="player-hearts"></div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-xl">
+                        <div class="flex gap-6">
+                            <div class="slot border-blue-500/30" id="p-char" onclick="Actions.playerClickSlot('char')">
+                                <span class="absolute -top-5 text-[0.6rem] text-blue-400 font-bold">TƯỚNG</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <div class="slot common-mark" id="p-spell1" onclick="Actions.playerClickSlot('spell1')"><span class="slot-label">P.1</span></div>
+                                <div class="slot rare-mark border-green-500/30" id="p-spell2" onclick="Actions.playerClickSlot('spell2')"><span class="slot-label">P.2</span></div>
+                                <div class="slot legendary-mark border-orange-500/30" id="p-spell3" onclick="Actions.playerClickSlot('spell3')"><span class="slot-label">P.3</span></div>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                <!-- GAME LOG - High enough to not overlap cards -->
+                <div class="w-full flex justify-center h-6 relative z-30 mb-2">
+                    <div id="game-log" class="text-[0.65rem] text-gray-400 font-bold bg-black/60 px-4 py-1 rounded-full border border-gray-800 backdrop-blur-sm tracking-wide">Chọn bài trước khi hết giờ!</div>
+                </div>
+
+                <!-- HAND - Padding Bottom increased to lift cards up -->
+                <div id="player-hand" class="pb-4"></div>
+            </div>
+        </div>
+
+        <div id="modal" class="hidden flex items-center justify-center">
+            <div class="text-center p-8 border-2 border-yellow-500/50 rounded-xl bg-slate-900 shadow-2xl">
+                <h2 id="modal-title" class="text-6xl font-magic mb-8 text-yellow-400">VICTORY</h2>
+                <button onclick="location.reload()" class="bg-white text-black font-bold py-4 px-12 rounded-full hover:bg-gray-200 text-xl tracking-wider transition-all">CHƠI LẠI</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = { TURN_TIME: 5.0, BASE_PW: 5, HEARTS: 3 };
+        const RARITY = { COMMON: 'common', RARE: 'rare', LEGENDARY: 'legendary' };
+        const ELEMENTS = { ROCK: 'rock', PAPER: 'paper', SCISSORS: 'scissors', NONE: 'none' };
+        const TYPES = { CHAR: 'char', SPELL: 'spell' };
+
+        const ELEMENT_MATRIX = {
+            [ELEMENTS.ROCK]: { [ELEMENTS.SCISSORS]: 1, [ELEMENTS.PAPER]: -1, [ELEMENTS.ROCK]: 0, [ELEMENTS.NONE]: 0 },
+            [ELEMENTS.PAPER]: { [ELEMENTS.ROCK]: 1, [ELEMENTS.SCISSORS]: -1, [ELEMENTS.PAPER]: 0, [ELEMENTS.NONE]: 0 },
+            [ELEMENTS.SCISSORS]: { [ELEMENTS.PAPER]: 1, [ELEMENTS.ROCK]: -1, [ELEMENTS.SCISSORS]: 0, [ELEMENTS.NONE]: 0 },
+            [ELEMENTS.NONE]: { [ELEMENTS.PAPER]: 0, [ELEMENTS.ROCK]: 0, [ELEMENTS.SCISSORS]: 0, [ELEMENTS.NONE]: 0 }
+        };
+
+        const PHASES = [
+            { id: 0, owner: 'enemy',  slot: 'char',   msg: 'ĐỊCH ĐẶT TƯỚNG' },
+            { id: 1, owner: 'player', slot: 'char',   msg: 'BẠN ĐẶT TƯỚNG' },
+            { id: 2, owner: 'enemy',  slot: 'spell1', msg: 'ĐỊCH ĐẶT PHÉP 1' },
+            { id: 3, owner: 'player', slot: 'spell1', msg: 'BẠN ĐẶT PHÉP 1' },
+            { id: 4, owner: 'enemy',  slot: 'spell2', msg: 'ĐỊCH ĐẶT PHÉP 2' },
+            { id: 5, owner: 'player', slot: 'spell2', msg: 'BẠN ĐẶT PHÉP 2' },
+            { id: 6, owner: 'enemy',  slot: 'spell3', msg: 'ĐỊCH ĐẶT PHÉP 3' },
+            { id: 7, owner: 'player', slot: 'spell3', msg: 'BẠN ĐẶT PHÉP 3' },
+            { id: 8, owner: null,     slot: null,     msg: 'GIAO CHIẾN...' }
+        ];
+
+        const CARD_DATABASE = {
+            CHARACTERS: [
+                { id: 'c_r_1', name: 'Búa Sắt', element: ELEMENTS.ROCK, rarity: RARITY.COMMON, power: 5, icon: 'fa-hand-rock', color: 'text-red-500' },
+                { id: 'c_p_1', name: 'Bao Vải', element: ELEMENTS.PAPER, rarity: RARITY.COMMON, power: 5, icon: 'fa-hand', color: 'text-blue-500' },
+                { id: 'c_s_1', name: 'Kéo Gỗ', element: ELEMENTS.SCISSORS, rarity: RARITY.COMMON, power: 5, icon: 'fa-hand-scissors', color: 'text-green-500' },
+                { id: 'c_slime', name: 'Slime', element: ELEMENTS.NONE, rarity: RARITY.RARE, power: 6, icon: 'fa-certificate', color: 'text-gray-300' },
+                { id: 'c_dragon', name: 'Rồng Già', element: ELEMENTS.NONE, rarity: RARITY.LEGENDARY, power: 7, icon: 'fa-dragon', color: 'text-gray-100' }
+            ],
+            SPELLS: [
+                { id: 'buff1', name: 'Tăng Cường', val: 1, effectType: 'buff', desc: '+1 PW Tướng', rarity: RARITY.COMMON },
+                { id: 'nerf1', name: 'Suy Yếu', val: 1, effectType: 'nerf', desc: '-1 PW Địch', rarity: RARITY.COMMON },
+                { id: 'draw1', name: 'Rút Bài', val: 1, effectType: 'draw1', desc: '+1 Bài', rarity: RARITY.COMMON },
+                { id: 'buff2', name: 'Cường Hoá', val: 2, effectType: 'buff', desc: '+2 PW Tướng', rarity: RARITY.RARE },
+                { id: 'nerf2', name: 'Suy Nhược', val: 2, effectType: 'nerf', desc: '-2 PW Địch', rarity: RARITY.RARE },
+                { id: 'draw2', name: 'Bốc Bài', val: 2, effectType: 'draw2', desc: '+2 Bài, -1 Rác', rarity: RARITY.RARE },
+                { id: 'shield', name: 'Bảo Hộ', effectType: 'shield', desc: 'Kháng Trừ PW', rarity: RARITY.LEGENDARY },
+                { id: 'heal', name: 'Hồi Máu', effectType: 'heal', desc: '+1 Tim (Max 3)', rarity: RARITY.LEGENDARY },
+                { id: 'empower', name: 'Khếch Đại', effectType: 'double_pw', desc: 'x2 PW Tướng', rarity: RARITY.LEGENDARY },
+                { id: 'god_draw', name: 'Thần Bài', val: 2, effectType: 'god_draw', desc: '+2 Bài, Phá Địch', rarity: RARITY.LEGENDARY },
+                { id: 'curse', name: 'Nguyền Rủa', effectType: 'halve_pw', desc: 'Chia đôi PW Địch', rarity: RARITY.LEGENDARY }
+            ]
+        };
+
+        const state = {
+            player: { hearts: CONFIG.HEARTS, hand: [], field: {} },
+            enemy: { hearts: CONFIG.HEARTS, hand: [], field: {} },
+            phaseIdx: 0,
+            timer: CONFIG.TURN_TIME,
+            lastFrame: 0,
+            selectedIdx: null,
+            isRunning: false
+        };
+
+        const Core = {
+            init: () => { 
+                Core.dealInitialCards(); 
+                UI.update(); 
+                UI.playStartSequence(); 
+                window.addEventListener('resize', UI.updateHand);
+                
+                // Horizontal Scroll for Hand on PC
+                const handEl = document.getElementById('player-hand');
+                handEl.addEventListener('wheel', (e) => {
+                    if (e.deltaY !== 0) {
+                        e.preventDefault();
+                        handEl.scrollLeft += e.deltaY;
+                    }
+                });
+            },
+            dealInitialCards: () => {
+                state.player.hand = []; state.enemy.hand = [];
+                for(let i=0; i<2; i++) { state.player.hand.push(Core.genCard(TYPES.CHAR)); state.enemy.hand.push(Core.genCard(TYPES.CHAR)); }
+                for(let i=0; i<5; i++) { state.player.hand.push(Core.genCard(TYPES.SPELL)); state.enemy.hand.push(Core.genCard(TYPES.SPELL)); }
+            },
+            genCard: (type) => {
+                const r = Math.random();
+                let rarity = RARITY.COMMON;
+                if(r > 0.8) rarity = RARITY.LEGENDARY; else if(r > 0.5) rarity = RARITY.RARE; 
+                const pool = type === TYPES.CHAR ? CARD_DATABASE.CHARACTERS : CARD_DATABASE.SPELLS;
+                const filtered = pool.filter(c => c.rarity === rarity);
+                const template = filtered[Math.floor(Math.random() * filtered.length)] || pool[0];
+                return { ...template, type: type }; 
+            },
+            gameLoop: (timestamp) => {
+                if(!state.isRunning) return;
+                
+                if(!state.lastFrame) {
+                    state.lastFrame = timestamp;
+                    requestAnimationFrame(Core.gameLoop);
+                    return;
+                }
+
+                const dt = (timestamp - state.lastFrame) / 1000;
+                state.lastFrame = timestamp;
+
+                const p = PHASES[state.phaseIdx];
+                if(p.id !== 8) { 
+                    state.timer -= dt; UI.updateTimer(p);
+                    if(state.timer <= 0) { UI.notify(`HẾT GIỜ! ${p.owner === 'player' ? 'BẠN' : 'ĐỊCH'} BỎ LƯỢT.`); Core.nextPhase(); }
+                    if(p.owner === 'enemy' && state.timer <= 2.5) Actions.aiMove(p.slot);
+                }
+                requestAnimationFrame(Core.gameLoop);
+            },
+            startPhase: (idx) => {
+                state.phaseIdx = idx; state.timer = CONFIG.TURN_TIME;
+                const p = PHASES[idx];
+                if(p.id === 8) {
+                    UI.setPhaseBadge("GIAO CHIẾN...");
+                    document.querySelector('.timer-container').style.opacity = '0';
+                    Battle.resolve();
+                } else {
+                    document.querySelector('.timer-container').style.opacity = '1';
+                    UI.highlightSlot(p);
+                    if(p.owner === 'player') { state.selectedIdx = null; UI.updateHand(); UI.notify("LƯỢT BẠN: Chọn bài đặt vào ô!"); } 
+                    else { UI.notify("ĐỊCH ĐANG NGHĨ..."); }
+                }
+            },
+            nextPhase: () => { if(state.phaseIdx + 1 < PHASES.length) Core.startPhase(state.phaseIdx + 1); }
+        };
+
+        const Actions = {
+            selectCard: (idx) => {
+                const p = PHASES[state.phaseIdx]; if(p.owner !== 'player') return;
+                state.selectedIdx = (state.selectedIdx === idx) ? null : idx; UI.updateHand();
+            },
+            playerClickSlot: (slotKey) => {
+                if (state.selectedIdx === null) return UI.notify("Chọn bài trước!", true);
+                const card = state.player.hand[state.selectedIdx];
+                if(slotKey==='char' && card.type!==TYPES.CHAR) return UI.notify("Ô này chỉ đặt TƯỚNG!", true);
+                if(slotKey!=='char' && card.type!==TYPES.SPELL) return UI.notify("Ô này chỉ đặt PHÉP!", true);
+                if(card.rarity===RARITY.LEGENDARY && slotKey!=='spell3' && slotKey!=='char') return UI.notify("Huyền Thoại chỉ đặt ô số 3!", true);
+                if(card.rarity===RARITY.RARE && slotKey==='spell1') return UI.notify("Bài Hiếm chỉ đặt ở ô 2 hoặc 3!", true);
+                
+                state.player.field[slotKey] = card; 
+                state.player.hand.splice(state.selectedIdx, 1);
+                state.selectedIdx = null; 
+                UI.renderSlot('p', slotKey, card); 
+                UI.updateHand();
+                
+                if(card.rarity === RARITY.LEGENDARY) FX.triggerLegendary();
+                state.timer = 999; Core.nextPhase();
+            },
+            aiMove: (slotKey) => {
+                const hand = state.enemy.hand; let idx = -1;
+                if(slotKey === 'char') idx = hand.findIndex(c => c.type === TYPES.CHAR);
+                else {
+                    idx = hand.findIndex(c => {
+                        if(c.type !== TYPES.SPELL) return false;
+                        if(c.rarity === RARITY.LEGENDARY && slotKey !== 'spell3') return false;
+                        if(c.rarity === RARITY.RARE && slotKey === 'spell1') return false;
+                        return true;
+                    });
+                }
+                if(idx > -1) {
+                    const card = hand.splice(idx, 1)[0]; state.enemy.field[slotKey] = card;
+                    UI.renderSlot('e', slotKey, card);
+                    if(card.rarity === RARITY.LEGENDARY) FX.triggerLegendary();
+                    UI.notify("Địch đã đặt bài.");
+                } else { UI.notify("Địch bỏ lượt."); }
+                state.timer = 999; Core.nextPhase();
+            }
+        };
+
+        const Battle = {
+             resolve: async () => {
+                state.isRunning = false;
+                let pPW = 0, ePW = 0; const pC = state.player.field.char; const eC = state.enemy.field.char;
+                if(pC) pPW = pC.power; if(eC) ePW = eC.power;
+                let pShield = false, eShield = false;
+
+                await Utils.wait(1000);
+                const seq = [{o:'enemy', s:'spell3'}, {o:'player', s:'spell3'}, {o:'enemy', s:'spell2'}, {o:'player', s:'spell2'}, {o:'enemy', s:'spell1'}, {o:'player', s:'spell1'}];
+
+                for(const step of seq) {
+                    const owner = step.o; const field = owner === 'player' ? state.player.field : state.enemy.field; const card = field[step.s];
+                    if(card) {
+                        const domId = `${owner==='player'?'p':'e'}-${step.s}`;
+                        const el = document.getElementById(domId).querySelector('.card');
+                        if(el) el.classList.add('active-spell');
+
+                        if(card.effectType === 'shield') { 
+                            const targetCharId = owner==='player' ? 'p-char' : 'e-char';
+                            if(owner==='player') { pShield=true; FX.addShield('p-char'); } else { eShield=true; FX.addShield('e-char'); }
+                            FX.floatTxt(targetCharId, "KHIÊN!", "text-yellow-400");
+                        }
+                        else if(card.effectType === 'heal') { FX.triggerHeal(domId); if(owner==='player') state.player.hearts = Math.min(3, state.player.hearts+1); else state.enemy.hearts = Math.min(3, state.enemy.hearts+1); UI.updateHearts(); FX.floatTxt(owner==='player'?'player-hearts':'enemy-hearts', '+1 TIM', 'text-green-400'); }
+                        else if(card.effectType === 'double_pw') { FX.triggerEmpower(owner==='player'?'p-char':'e-char'); if(owner==='player' && pC) pPW *= 2; else if(owner==='enemy' && eC) ePW *= 2; FX.floatTxt(domId, "X2 POWER", "text-red-500"); }
+                        else if(card.effectType === 'halve_pw') { FX.floatTxt(domId, "/2 POWER", "text-purple-500"); const tShield = owner==='player'?eShield:pShield; const tChar = owner==='player'?'e-char':'p-char'; if(tShield) FX.floatTxt(tChar, "KHÁNG", "text-gray-400"); else { FX.triggerCurse(tChar); if(owner==='player') ePW=Math.ceil(ePW/2); else pPW=Math.ceil(pPW/2); } }
+                        else if(card.effectType === 'buff') { if(owner==='player'&&pC) pPW+=card.val; else if(owner==='enemy'&&eC) ePW+=card.val; FX.floatTxt(domId, `+${card.val}`, "text-blue-400"); }
+                        else if(card.effectType === 'nerf') { const tShield = owner==='player'?eShield:pShield; const tChar = owner==='player'?'e-char':'p-char'; if(tShield) FX.floatTxt(tChar, "KHÁNG", "text-gray-400"); else { if(owner==='player') ePW-=card.val; else pPW-=card.val; FX.floatTxt(tChar, `-${card.val}`, "text-red-500"); } }
+                        else if(card.effectType && (card.effectType.includes('draw') || card.effectType === 'god_draw')) {
+                             if(card.effectType === 'draw1') Battle.applyDrawEffect(owner, 1, 0);
+                             else if(card.effectType === 'draw2') Battle.applyDrawEffect(owner, 2, 1);
+                             else if(card.effectType === 'god_draw') { Battle.applyDrawEffect(owner, 2, 0); Battle.applyDrawEffect(owner==='player'?'enemy':'player', 0, 1, true); }
+                             FX.floatTxt(domId, "RÚT BÀI!", "text-green-400");
+                        }
+
+                        await Utils.wait(800);
+                        if(el) el.classList.remove('active-spell');
+                    }
+                }
+                
+                if(pC && eC) {
+                    const res = ELEMENT_MATRIX[pC.element][eC.element];
+                    if(res===1) { pPW++; FX.floatTxt('p-char', '+1 (Khắc)', 'text-green-400'); } else if(res===-1) { ePW++; FX.floatTxt('e-char', '+1 (Khắc)', 'text-red-500'); }
+                }
+
+                pPW = Math.max(0, pPW); ePW = Math.max(0, ePW);
+                await Utils.wait(1000); UI.notify(`KẾT QUẢ: BẠN ${pPW} - ĐỊCH ${ePW}`);
+
+                if(pPW > ePW) { state.enemy.hearts--; FX.floatTxt('enemy-hearts', '-1', 'text-red-500'); FX.triggerSlash('enemy-hearts-container'); }
+                else if(ePW > pPW) { state.player.hearts--; FX.floatTxt('player-hearts', '-1', 'text-red-500'); FX.triggerSlash('player-hearts-container'); }
+                UI.updateHearts();
+
+                if(state.player.hearts <= 0 || state.enemy.hearts <= 0) setTimeout(UI.showEndGame, 1000);
+                else { await Utils.wait(2000); Battle.resetRound(); }
+            },
+            applyDrawEffect: (ownerStr, drawCount, discardCount, isEnemyTarget = false) => {
+                const target = isEnemyTarget ? (ownerStr === 'player' ? state.enemy : state.player) : (ownerStr === 'player' ? state.player : state.enemy);
+                for(let i=0; i<drawCount; i++) target.hand.push(Core.genCard(TYPES.SPELL));
+                for(let i=0; i<discardCount; i++) { if(target.hand.length > 0) target.hand.splice(Math.floor(Math.random() * target.hand.length), 1); }
+                UI.updateHand(); UI.renderEnemyHand();
+            },
+            resetRound: () => {
+                state.player.field = {}; state.enemy.field = {};
+                ['p','e'].forEach(who => { 
+                    ['char', 'spell1', 'spell2', 'spell3'].forEach(s => { 
+                        const el = document.getElementById(`${who}-${s}`);
+                        const label = el.querySelector('.slot-label');
+                        el.innerHTML = ''; if(label) el.appendChild(label);
+                    }); 
+                });
+                document.querySelectorAll('.shield-overlay, .curse-overlay, .empower-overlay').forEach(e => e.remove());
+                state.player.hand.push(Core.genCard(TYPES.CHAR)); state.player.hand.push(Core.genCard(TYPES.SPELL)); state.player.hand.push(Core.genCard(TYPES.SPELL));
+                state.enemy.hand.push(Core.genCard(TYPES.CHAR)); state.enemy.hand.push(Core.genCard(TYPES.SPELL)); state.enemy.hand.push(Core.genCard(TYPES.SPELL));
+                UI.updateHand(); UI.renderEnemyHand(); 
+                state.lastFrame = 0; state.isRunning = true; Core.startPhase(0); requestAnimationFrame(Core.gameLoop);
+            }
+        };
+
+        const UI = {
+            update: () => { UI.updateHand(); UI.renderEnemyHand(); UI.updateHearts(); },
+            updateHand: () => {
+                const div = document.getElementById('player-hand'); div.innerHTML = '';
+                const p = PHASES[state.phaseIdx]; const myTurn = p.owner === 'player' && p.id !== 8;
+                const handLen = state.player.hand.length;
+                const cardW = 72; const containerW = div.clientWidth - 48;
+                let overlap = 0; let justifyClass = 'justify-center';
+                if ((handLen * cardW + (handLen - 1) * 4) > containerW && handLen > 1) {
+                    overlap = Math.ceil(((handLen * cardW + (handLen - 1) * 4) - containerW) / (handLen - 1)) + 2;
+                    if (overlap > 20) { overlap = 20; justifyClass = 'justify-start'; } else justifyClass = 'justify-center';
+                }
+                div.className = `flex items-end h-36 w-full z-20 overflow-x-auto px-6 ${justifyClass} pb-4`;
+
+                state.player.hand.forEach((c, i) => {
+                    const el = document.createElement('div');
+                    let cls = `card rarity-${c.rarity} `; if(c.type === TYPES.CHAR) cls += `bg-char-${c.element}`;
+                    if(state.selectedIdx === i) cls += ' selected';
+                    if(myTurn) { if((p.slot==='char' && c.type!==TYPES.CHAR) || (p.slot!=='char' && c.type===TYPES.CHAR)) cls += ' disabled'; } else cls += ' disabled';
+                    if(i > 0 && overlap > 0) el.style.marginLeft = `-${overlap}px`;
+                    el.className = cls; el.onclick = () => Actions.selectCard(i); el.innerHTML = UI.getCardHTML(c);
+                    div.appendChild(el);
+                });
+                UI.highlightSlot(p);
+            },
+            renderEnemyHand: () => {
+                const div = document.getElementById('enemy-hand'); div.innerHTML = '';
+                state.enemy.hand.forEach((_, i) => { const el = document.createElement('div'); el.className = 'card-back'; div.appendChild(el); });
+            },
+            renderSlot: (prefix, slot, card) => {
+                const el = document.getElementById(`${prefix}-${slot}`);
+                const label = el.querySelector('.slot-label'); el.innerHTML = ''; if(label) el.appendChild(label);
+                const div = document.createElement('div'); let cls = `card rarity-${card.rarity} `;
+                if(card.type === TYPES.CHAR) cls += `bg-char-${card.element}`; 
+                div.className = cls; div.innerHTML = UI.getCardHTML(card); el.appendChild(div);
+            },
+            getCardHTML: (c) => {
+                if(c.type === TYPES.CHAR) {
+                    let borderClass = 'bar-none';
+                    if(c.element === ELEMENTS.ROCK) borderClass = 'bar-rock';
+                    if(c.element === ELEMENTS.PAPER) borderClass = 'bar-paper';
+                    if(c.element === ELEMENTS.SCISSORS) borderClass = 'bar-scissors';
+                    return `<i class="fas ${c.icon} text-3xl ${c.color}"></i><div class="mt-2 px-1 rounded text-white font-bold text-[0.6rem] w-full text-center ${borderClass}">PW: ${c.power}</div>`;
+                } else {
+                    let icon = 'fa-scroll'; let col = 'text-green-400';
+                    if(c.rarity === RARITY.LEGENDARY) {
+                        if(c.effectType === 'heal') { icon = 'fa-heart-pulse'; col = 'text-pink-500'; }
+                        else if(c.effectType === 'double_pw') { icon = 'fa-fire'; col = 'text-red-500'; }
+                        else if(c.effectType === 'god_draw') { icon = 'fa-dice-d20'; col = 'text-purple-400'; }
+                        else if(c.effectType === 'halve_pw') { icon = 'fa-ghost'; col = 'text-purple-600'; }
+                        else { icon = 'fa-shield-halved'; col = 'text-yellow-500'; }
+                    } else if(c.effectType === 'nerf') col = 'text-red-400';
+                    else if(c.effectType === 'draw1') { icon = 'fa-plus'; col = 'text-blue-300'; }
+                    else if(c.effectType === 'draw2') { return `<div class="flex gap-1 mb-1"><i class="fas fa-plus text-lg text-blue-300"></i><i class="fas fa-plus text-lg text-blue-300"></i></div><div class="text-[0.5rem] font-bold text-gray-300 leading-tight text-center">${c.name}</div>`; }
+                    return `<i class="fas ${icon} text-2xl ${col} mb-1"></i><div class="text-[0.5rem] font-bold text-gray-300 leading-tight text-center px-1">${c.name}</div>`;
+                }
+            },
+            highlightSlot: (p) => {
+                document.querySelectorAll('.active-turn-slot').forEach(e => e.classList.remove('active-turn-slot'));
+                if(p.owner === 'player' && p.id !== 8) document.getElementById(`p-${p.slot}`).classList.add('active-turn-slot');
+            },
+            updateTimer: (p) => {
+                const path = document.getElementById('timer-path');
+                const pct = Math.max(0, state.timer) / CONFIG.TURN_TIME; path.style.strokeDashoffset = 126 * (1 - pct);
+                document.getElementById('phase-badge').innerText = p.msg;
+                path.setAttribute('class', p.owner === 'player' ? 'timer-path color-green' : 'timer-path color-red');
+            },
+            setPhaseBadge: (txt) => { document.getElementById('phase-badge').innerText = txt; },
+            updateHearts: () => {
+                const h = (id, count) => {
+                    const el = document.getElementById(id);
+                    el.innerHTML = Array(3).fill(0).map((_,i)=>`<i class="fas fa-heart ${i<count?'text-red-500':'text-gray-800'}"></i>`).join('');
+                };
+                h('player-hearts', state.player.hearts); h('enemy-hearts', state.enemy.hearts);
+            },
+            notify: (m, err=false) => { 
+                const el = document.getElementById('game-log'); 
+                el.innerText = m; 
+                el.className = err ? "text-[0.65rem] text-red-400 font-bold animate-pulse backdrop-blur-sm bg-black/40 px-4 py-1 rounded-full border border-gray-800" : "text-[0.65rem] text-gray-400 font-bold bg-black/40 px-4 py-1 rounded-full border border-gray-800 backdrop-blur-sm tracking-wide"; 
+            },
+            playStartSequence: async () => {
+                const overlay = document.getElementById('start-overlay'); const text = document.getElementById('start-text');
+                const show = async (str, t) => { text.innerText = str; text.style.animation='none'; text.offsetHeight; text.style.animation = `popIn ${t/1000}s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`; await Utils.wait(t); }
+                await show("READY?", 1000); await show("SET", 800); text.style.color='#ef4444'; text.style.textShadow='0 0 30px #ef4444'; await show("DUEL!", 1000);
+                overlay.style.opacity = '0'; setTimeout(() => { overlay.style.display = 'none'; Core.startPhase(0); state.isRunning = true; requestAnimationFrame(Core.gameLoop); }, 500);
+            },
+            showEndGame: () => {
+                const win = state.player.hearts > 0;
+                document.getElementById('modal').classList.remove('hidden');
+                document.querySelector('#modal h2').innerText = win ? "CHIẾN THẮNG!" : "THẤT BẠI...";
+                document.querySelector('#modal h2').className = win ? "text-6xl font-magic mb-8 text-yellow-400" : "text-6xl font-magic mb-8 text-red-600";
+            }
+        };
+
+        const FX = {
+            floatTxt: (id, t, c) => { const p=document.getElementById(id); if(!p)return; const d=document.createElement('div'); d.className=`damage-float ${c}`; d.innerText=t; p.appendChild(d); setTimeout(()=>d.remove(),1500); },
+            addShield: (id) => { const p=document.getElementById(id); if(!p.querySelector('.shield-overlay')) { const d=document.createElement('div'); d.className='shield-overlay'; p.appendChild(d); } },
+            triggerLegendary: () => { document.getElementById('game-container').classList.add('shake-screen', 'halo-screen'); setTimeout(()=>{ document.getElementById('game-container').classList.remove('shake-screen', 'halo-screen'); },500); },
+            triggerHeal: (domId) => { const p=document.getElementById(domId); if(!p)return; for(let i=0;i<30;i++){ const d=document.createElement('div'); d.className='heal-particle'; d.style.left=(Math.random()*60+10)+'px'; d.style.top=(Math.random()*80+10)+'px'; d.style.animationDelay=(Math.random()*0.5)+'s'; p.appendChild(d); setTimeout(()=>d.remove(),1500); } },
+            triggerEmpower: (domId) => { 
+                const p=document.getElementById(domId); if(!p)return; 
+                const a=document.createElement('div'); a.className='empower-aura'; p.appendChild(a); setTimeout(()=>a.remove(),1000);
+                if(!p.querySelector('.empower-overlay')){ const o=document.createElement('div'); o.className='empower-overlay'; p.appendChild(o); }
+            },
+            
+            triggerSlash: (zoneId) => { 
+                const zone = document.getElementById(zoneId); 
+                if(!zone) return; 
+                const slash = document.createElement('div'); 
+                slash.className = 'slash-container'; 
+                slash.innerHTML = '<div class="slash-line"></div>'; 
+                zone.appendChild(slash); 
+                setTimeout(() => slash.remove(), 1000); 
+            },
+            
+            triggerCardSpin: (domId) => { const el = document.getElementById(domId).querySelector('.card'); if(el) el.classList.add('card-spin'); },
+            triggerCardParticles: (domId) => {
+                const p = document.getElementById(domId); if(!p)return;
+                for(let i=0; i<10; i++) {
+                    const d = document.createElement('i'); d.className = 'fas fa-id-card card-particle';
+                    d.style.setProperty('--tx', (Math.random()*100 - 50) + 'px'); d.style.setProperty('--ty', (Math.random()*100 - 50) + 'px');
+                    d.style.left='30px'; d.style.top='50px'; p.appendChild(d); setTimeout(()=>d.remove(),1000);
+                }
+            },
+            triggerCurse: (domId) => {
+                const p = document.getElementById(domId); if(!p) return;
+                const ov = document.createElement('div'); ov.className = 'curse-overlay';
+                for(let i=0; i<8; i++) { const l = document.createElement('div'); l.className = 'curse-line'; l.style.left = (12 * i + 5) + '%'; l.style.animationDelay = (Math.random()*0.3)+'s'; ov.appendChild(l); }
+                p.appendChild(ov);
+            }
+        };
+
+        const Utils = { wait: (ms) => new Promise(r => setTimeout(r, ms)), genCard: (t) => Core.genCard(t) };
+        window.onload = Core.init;
+    </script>
+</body>
+</html>

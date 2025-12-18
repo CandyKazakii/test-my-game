@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <html lang="vi">
 <!-- 
-    MAGIC CARDS v1.6.3 - PC OPTIMIZATION & LAYOUT FIX
-    - Logic: Time-Sync cố định Phase 0.
-    - Logic Update: Kích hoạt cuộn chuột ngang cho bộ bài (PC Friendly).
-    - UI: Khôi phục biểu tượng quân cờ Pawn (P.1), Rook (P.2), Queen (P.3).
-    - Layout: Đẩy cao khu vực bài trên tay để không bị khuất dưới đáy màn hình.
-    - Battle: Hiệu ứng Rút bài thực hiện trong giai đoạn Giao Tranh.
+    MAGIC CARDS v1.8f - HAND SYNC FIX
+    - Title: "MAGIC CARDS".
+    - Fix: Enemy hand visual count now updates immediately when AI places a card (aiMove).
+    - Previous Fixes Retained: God Draw logic, Sun Instant effect, Balance updates.
 -->
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Cards v1.6.3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Magic Cards v1.8f</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -26,15 +24,24 @@
             color: white; overflow: hidden; user-select: none;
             height: 100vh; width: 100vw;
             display: flex; justify-content: center; align-items: center;
+            margin: 0;
+        }
+
+        #game-wrapper {
+            display: flex; justify-content: center; align-items: center;
+            width: 100%; height: 100%;
         }
 
         #game-container {
-            position: relative; width: 100%; height: 100%; max-width: 480px;
+            position: relative; 
+            width: 480px; height: 850px; 
             background-color: #0f0518;
             background-image: radial-gradient(circle at center, #2e1065 0%, #000000 120%);
             display: flex; flex-direction: column; overflow: hidden;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
-            border-left: 1px solid #334155; border-right: 1px solid #334155;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            border: 1px solid #334155;
+            transform-origin: center center;
+            flex-shrink: 0;
         }
 
         .font-magic { font-family: 'Cinzel', serif; }
@@ -46,25 +53,30 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             cursor: pointer; transition: transform 0.2s, margin 0.2s;
             position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.6); z-index: 10;
-            flex-shrink: 0; border-color: #4b5563;
+            flex-shrink: 0; border-color: #4b5563; overflow: hidden;
         }
-        .card:hover { transform: translateY(-20px) !important; z-index: 100 !important; border-color: #fbbf24 !important; margin-right: 10px; }
-        .card.selected { border-color: #fbbf24 !important; transform: translateY(-20px) !important; box-shadow: 0 0 15px #fbbf24; z-index: 90; }
+        .card:hover { transform: translateY(-25px) !important; z-index: 100 !important; border-color: #fbbf24 !important; margin-right: 10px; }
+        .card.selected { border-color: #fbbf24 !important; transform: translateY(-25px) !important; box-shadow: 0 0 15px #fbbf24; z-index: 90; }
         .card.disabled { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
         
-        .bg-char-rock { background: linear-gradient(160deg, #2a0a0a, #0f0505); } 
-        .bg-char-paper { background: linear-gradient(160deg, #0a0e2a, #05050f); } 
-        .bg-char-scissors { background: linear-gradient(160deg, #051a0a, #020f05); } 
-        .bg-char-none { background: linear-gradient(160deg, #1f1f1f, #0a0a0a); } 
-        .bar-rock { background-color: rgba(220, 38, 38, 0.8); border-top: 1px solid #ef4444; }
-        .bar-paper { background-color: rgba(37, 99, 235, 0.8); border-top: 1px solid #3b82f6; }
-        .bar-scissors { background-color: rgba(22, 163, 74, 0.8); border-top: 1px solid #22c55e; }
+        /* ELEMENT COLORS */
+        .header-fire { background-color: rgba(220, 38, 38, 0.9); border-bottom: 1px solid #ef4444; }
+        .header-water { background-color: rgba(37, 99, 235, 0.9); border-bottom: 1px solid #3b82f6; }
+        .header-wood { background-color: rgba(22, 163, 74, 0.9); border-bottom: 1px solid #22c55e; }
+        
+        .footer-fire { background-color: rgba(220, 38, 38, 0.8); border-top: 1px solid #ef4444; }
+        .footer-water { background-color: rgba(37, 99, 235, 0.8); border-top: 1px solid #3b82f6; }
+        .footer-wood { background-color: rgba(22, 163, 74, 0.8); border-top: 1px solid #22c55e; }
+
+        .bg-char-fire { background: linear-gradient(160deg, #450a0a, #1a0505); } 
+        .bg-char-water { background: linear-gradient(160deg, #0a0e2a, #05050f); } 
+        .bg-char-wood { background: linear-gradient(160deg, #051a0a, #020f05); } 
 
         .rarity-common { border-color: #9ca3af; } 
         .rarity-rare { border-color: #22c55e; box-shadow: 0 0 5px rgba(34, 197, 94, 0.3); } 
         .rarity-legendary { 
             border-color: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); 
-            animation: glow 1.5s infinite alternate;
+            animation: glow 2s infinite alternate;
         }
         @keyframes glow { from { box-shadow: 0 0 5px #f59e0b; } to { box-shadow: 0 0 15px #f59e0b; } }
 
@@ -74,7 +86,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.5); margin: 0 -15px; flex-shrink: 0;
         }
 
-        /* --- SLOT WITH CHESS ICONS --- */
+        /* --- SLOT --- */
         .slot {
             width: 78px; height: 106px; border: 2px dashed #4b5563; border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
@@ -84,7 +96,6 @@
             position: absolute; bottom: 5px; width: 100%; text-align: center;
             font-size: 0.6rem; font-weight: bold; color: #6b7280; z-index: 0; pointer-events: none;
         }
-        .slot .card { width: 100%; height: 100%; margin: 0; transform: none !important; border-radius: 8px; z-index: 1; }
         .active-turn-slot {
             border: 2px solid #fbbf24; background-color: rgba(251, 191, 36, 0.15);
             box-shadow: 0 0 20px rgba(251, 191, 36, 0.4); animation: pulse-border 0.8s infinite; cursor: pointer; z-index: 5;
@@ -94,27 +105,28 @@
         .common-mark::after { content: '\f443'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: -12px; right: -5px; color: #9ca3af; font-size: 0.9rem; opacity: 0.7; }
         .rare-mark::after { content: '\f447'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: -12px; right: -5px; color: #22c55e; font-size: 1rem; }
         .legendary-mark::after { content: '\f445'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: -15px; right: -5px; color: #f59e0b; font-size: 1.2rem; }
+        .instant-mark::before { content: '⚡'; position: absolute; top: 2px; right: 2px; color: #facc15; font-size: 0.8rem; z-index: 20; text-shadow: 0 0 5px black; animation: flashIcon 1s infinite; }
+        @keyframes flashIcon { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
         /* --- HAND --- */
         #player-hand {
-            display: flex; align-items: flex-end; padding: 0 1.5rem;
-            height: 9.5rem; width: 100%; z-index: 20; 
+            display: flex; align-items: flex-end; padding: 0 1.5rem 1rem 1.5rem;
+            height: 150px; width: 100%; z-index: 20; 
             overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
-            cursor: grab;
         }
-        #player-hand:active { cursor: grabbing; }
         #player-hand::-webkit-scrollbar { display: none; }
-        #enemy-hand { overflow: hidden; justify-content: center; padding-left: 20px; padding-right: 20px; }
+        
+        #enemy-hand { overflow: hidden; justify-content: center; padding: 0 20px; }
 
         /* --- TIMER --- */
-        .timer-container { position: relative; width: 48px; height: 48px; }
+        .timer-container { position: relative; width: 64px; height: 64px; transition: transform 0.3s; }
         .timer-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
-        .timer-circle { fill: none; stroke-width: 8; stroke: #334155; }
-        .timer-path { fill: none; stroke-width: 8; stroke-linecap: round; stroke-dasharray: 126; stroke-dashoffset: 0; transition: 0.1s linear; }
+        .timer-circle { fill: none; stroke-width: 6; stroke: #334155; }
+        .timer-path { fill: none; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 176; stroke-dashoffset: 0; transition: 0.1s linear; }
         .color-green { stroke: #22c55e; } .color-red { stroke: #ef4444; }
 
         /* --- FX --- */
-        .damage-float { position: absolute; font-weight: 900; font-size: 1.8rem; animation: floatUp 1.5s ease-out forwards; z-index: 100; text-shadow: 2px 2px 0 #000; width: 100%; text-align: center; top: -30px; }
+        .damage-float { position: absolute; font-weight: 900; font-size: 1.8rem; animation: floatUp 1.5s ease-out forwards; z-index: 100; text-shadow: 2px 2px 0 #000; width: 100%; text-align: center; top: -30px; pointer-events: none; }
         @keyframes floatUp { to { transform: translateY(-60px); opacity: 0; } }
         .active-spell { transform: scale(1.1) !important; z-index: 100; box-shadow: 0 0 20px #d946ef; border-color: #d946ef; }
         .shake-screen { animation: shakeAnim 0.3s ease-out; }
@@ -123,140 +135,118 @@
         @keyframes haloAnim { 0% { box-shadow: inset 0 0 0px rgba(255, 215, 0, 0); } 30% { box-shadow: inset 0 0 100px rgba(255, 215, 0, 0.3); } 100% { box-shadow: inset 0 0 0px rgba(255, 215, 0, 0); } }
         .heal-particle { position: absolute; width: 6px; height: 6px; background: #4ade80; border-radius: 50%; pointer-events: none; z-index: 150; box-shadow: 0 0 8px #22c55e; animation: healRise 1.5s ease-out forwards; }
         @keyframes healRise { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(0); } }
-        
         .empower-aura { position: absolute; inset: -10px; border-radius: 12px; border: 3px solid #ef4444; box-shadow: 0 0 30px #ef4444, inset 0 0 20px #ef4444; z-index: 10; pointer-events: none; opacity: 0; animation: empowerPulse 0.8s ease-out forwards; }
         @keyframes empowerPulse { 0% { opacity: 0; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: scale(1.3); } }
-        
-        .empower-overlay {
-            position: absolute; inset: 0; pointer-events: none; z-index: 20; border-radius: 8px;
-            background: rgba(220, 38, 38, 0.3);
-            animation: redPulse 1s infinite alternate;
-            box-shadow: 0 0 15px rgba(220, 38, 38, 0.5);
-        }
+        .empower-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 20; border-radius: 8px; background: rgba(220, 38, 38, 0.3); animation: redPulse 1s infinite alternate; box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); }
         @keyframes redPulse { 0% { opacity: 0.3; } 100% { opacity: 0.7; } }
-
         .shield-overlay { position: absolute; inset: -4px; border-radius: 12px; border: 2px solid gold; background: rgba(255,215,0,0.15); z-index: 20; animation: pulseShield 1s infinite; pointer-events: none; }
-        
-        /* --- SLASH FX FIX: Static Origin --- */
-        .slash-container { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            pointer-events: none; z-index: 500; display: flex; align-items: center; justify-content: center;
-        }
-        .slash-line { 
-            position: absolute; height: 2px; background: #ef4444; 
-            box-shadow: 0 0 15px #ef4444, 0 0 5px white; 
-            width: 0%; border-radius: 4px; opacity: 1; 
-            transform: rotate(-15deg);
-            animation: slashAnim 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards; 
-        }
-        @keyframes slashAnim { 
-            0% { width: 0%; opacity: 1; } 
-            30% { width: 110%; opacity: 1; } 
-            100% { width: 110%; opacity: 0; transform: rotate(-15deg); } 
-        }
-
+        .slash-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500; display: flex; align-items: center; justify-content: center; }
+        .slash-line { position: absolute; height: 2px; background: #ef4444; box-shadow: 0 0 15px #ef4444, 0 0 5px white; width: 0%; border-radius: 4px; opacity: 1; transform: rotate(-15deg); animation: slashAnim 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        @keyframes slashAnim { 0% { width: 0%; opacity: 1; } 30% { width: 110%; opacity: 1; } 100% { width: 110%; opacity: 0; transform: rotate(-15deg); } }
         .curse-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 20; overflow: hidden; border-radius: 8px; background: rgba(46, 16, 101, 0.4); animation: darkenFlash 0.5s ease-out; }
         @keyframes darkenFlash { 0% { background: rgba(46, 16, 101, 0); } 50% { background: rgba(46, 16, 101, 0.7); } 100% { background: rgba(46, 16, 101, 0.4); } }
-        .curse-line {
-            position: absolute; top: -100%; width: 3px; background: #c084fc;
-            height: 60%; opacity: 0.9; box-shadow: 0 0 8px #a855f7;
-            animation: curseDrop 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
+        .curse-line { position: absolute; top: -100%; width: 3px; background: #c084fc; height: 60%; opacity: 0.9; box-shadow: 0 0 8px #a855f7; animation: curseDrop 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
         @keyframes curseDrop { to { top: 150%; opacity: 0; } }
-
+        .instant-flash { position: absolute; inset: 0; background: rgba(255, 255, 255, 0.8); z-index: 200; pointer-events: none; animation: flashWhite 0.2s ease-out forwards; }
+        @keyframes flashWhite { 0% { opacity: 0.8; } 100% { opacity: 0; } }
+        .sun-aura { position: absolute; inset: -20px; background: radial-gradient(circle, rgba(251,191,36,0.6) 0%, rgba(245,158,11,0) 70%); z-index: 150; animation: sunBurst 1s ease-out forwards; pointer-events: none; }
+        @keyframes sunBurst { 0% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1.5); } }
+        .card-particle { position: absolute; color: #fbbf24; font-size: 1rem; z-index: 150; animation: cardParticlePop 1s ease-out forwards; }
+        @keyframes cardParticlePop { 0% { transform: translate(0,0) scale(0.5); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(1.2); opacity: 0; } }
+        
         #start-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; }
         .start-text { font-size: 4rem; font-weight: bold; color: #fbbf24; text-shadow: 0 0 30px #fbbf24; animation: popIn 0.5s forwards; opacity: 0; transform: scale(0.5); }
         @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
         #modal { position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 9998; }
-
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <!-- LAYERS -->
-        <div id="start-overlay"><div id="start-text" class="start-text">READY?</div></div>
+    <div id="game-wrapper">
+        <div id="game-container">
+            <div id="start-overlay"><div id="start-text" class="start-text">READY?</div></div>
 
-        <!-- HEADER -->
-        <div class="h-16 bg-black/80 relative flex items-center justify-center px-6 border-b border-purple-900 z-30 shrink-0">
-            <h1 class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 font-magic text-3xl text-yellow-500 tracking-wider drop-shadow-xl whitespace-nowrap">
-                MAGIC CARDS
-            </h1>
-        </div>
+            <div class="h-16 bg-black/80 relative flex items-center justify-center px-6 border-b border-purple-900 z-30 shrink-0">
+                <h1 class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 font-magic text-3xl text-yellow-500 tracking-wider drop-shadow-xl whitespace-nowrap">
+                    MAGIC CARDS
+                </h1>
+            </div>
 
-        <!-- BATTLEFIELD -->
-        <div class="flex-1 flex flex-col justify-between overflow-hidden">
-            <!-- ENEMY -->
-            <div class="flex-1 flex flex-col items-center justify-start pt-2 relative" id="enemy-zone">
-                <div id="enemy-hand" class="flex justify-center -mb-8 transform scale-75 opacity-70 z-0 h-20 w-full overflow-hidden"></div>
-                <div class="flex flex-col items-start mt-6 relative z-10">
-                    <div class="w-fit flex justify-start items-center gap-2 mb-2 ml-6 relative" id="enemy-hearts-container">
-                        <span class="text-[0.6rem] text-red-400 font-bold uppercase tracking-widest">ĐỐI THỦ</span>
-                        <div class="flex gap-1 items-center" id="enemy-hearts"></div>
-                    </div>
-                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-xl">
-                        <div class="flex gap-6">
-                            <div class="flex gap-2">
-                                <div class="slot common-mark" id="e-spell1"><span class="slot-label">P.1</span></div>
-                                <div class="slot rare-mark border-green-500/30" id="e-spell2"><span class="slot-label">P.2</span></div>
-                                <div class="slot legendary-mark border-orange-500/30" id="e-spell3"><span class="slot-label">P.3</span></div>
-                            </div>
-                            <div class="slot border-red-500/30" id="e-char">
-                                <span class="absolute -top-5 text-[0.6rem] text-red-400 font-bold">TƯỚNG</span>
+            <!-- BATTLEFIELD - FLEX COLUMN -->
+            <div class="flex-1 flex flex-col justify-between overflow-hidden">
+                
+                <!-- ENEMY -->
+                <div class="flex-none h-60 w-full flex flex-col items-center justify-start pt-6 relative" id="enemy-zone">
+                    <div id="enemy-hand" class="flex justify-center transform scale-90 z-10 h-28 w-full mb-4"></div>
+                    
+                    <!-- Stats/Slots -->
+                    <div class="flex flex-col items-start relative z-20">
+                        <div class="w-fit flex justify-start items-center gap-2 mb-2 ml-6 relative" id="enemy-hearts-container">
+                            <span class="text-[0.6rem] text-red-400 font-bold uppercase tracking-widest">ĐỐI THỦ</span>
+                            <div class="flex gap-1 items-center" id="enemy-hearts"></div>
+                        </div>
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-xl">
+                            <div class="flex gap-6">
+                                <div class="flex gap-2">
+                                    <div class="slot common-mark" id="e-spell1"><span class="slot-label">P.1</span></div>
+                                    <div class="slot rare-mark border-green-500/30" id="e-spell2"><span class="slot-label">P.2</span></div>
+                                    <div class="slot legendary-mark border-orange-500/30" id="e-spell3"><span class="slot-label">P.3</span></div>
+                                </div>
+                                <div class="slot border-red-500/30" id="e-char">
+                                    <span class="absolute -top-5 text-[0.6rem] text-red-400 font-bold">TƯỚNG</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- TIMER -->
-            <div class="h-16 flex flex-col items-center justify-center z-20 shrink-0 my-2">
-                <div class="timer-container">
-                    <svg class="timer-svg" viewBox="0 0 48 48">
-                        <circle class="timer-circle" cx="24" cy="24" r="20"></circle>
-                        <path id="timer-path" class="timer-path color-green" d="M 24, 24 m -20, 0 a 20,20 0 1,0 40,0 a 20,20 0 1,0 -40,0"></path>
-                    </svg>
-                </div>
-                <div id="phase-badge" class="mt-1 px-3 py-0.5 bg-black/80 rounded border border-yellow-500 text-yellow-400 text-[0.6rem] font-bold uppercase tracking-widest shadow-lg">
-                    CHUẨN BỊ...
-                </div>
-            </div>
-
-            <!-- PLAYER -->
-            <div class="flex-1 flex flex-col justify-end items-center pb-8 relative" id="player-zone">
-                 <div class="flex flex-col items-start mb-6 relative z-10">
-                    <div class="w-fit flex justify-start items-center gap-2 mb-2 ml-6 relative" id="player-hearts-container">
-                        <span class="text-[0.6rem] text-blue-400 font-bold uppercase tracking-widest">BẠN</span>
-                        <div class="flex gap-1 items-center" id="player-hearts"></div>
+                <!-- TIMER -->
+                <div class="flex-none h-auto py-4 flex flex-col items-center justify-center z-20 shrink-0">
+                    <div class="timer-container">
+                        <svg class="timer-svg" viewBox="0 0 64 64">
+                            <circle class="timer-circle" cx="32" cy="32" r="28"></circle>
+                            <path id="timer-path" class="timer-path color-green" d="M 32, 32 m -28, 0 a 28,28 0 1,0 56,0 a 28,28 0 1,0 -56,0" style="stroke-dasharray: 176; stroke-width: 6;"></path>
+                        </svg>
                     </div>
-                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-xl">
-                        <div class="flex gap-6">
-                            <div class="slot border-blue-500/30" id="p-char" onclick="Actions.playerClickSlot('char')">
-                                <span class="absolute -top-5 text-[0.6rem] text-blue-400 font-bold">TƯỚNG</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <div class="slot common-mark" id="p-spell1" onclick="Actions.playerClickSlot('spell1')"><span class="slot-label">P.1</span></div>
-                                <div class="slot rare-mark border-green-500/30" id="p-spell2" onclick="Actions.playerClickSlot('spell2')"><span class="slot-label">P.2</span></div>
-                                <div class="slot legendary-mark border-orange-500/30" id="p-spell3" onclick="Actions.playerClickSlot('spell3')"><span class="slot-label">P.3</span></div>
+                    <div id="phase-badge" class="mt-2 px-4 py-1 bg-black/80 rounded border border-yellow-500 text-yellow-400 text-[0.65rem] font-bold uppercase tracking-widest shadow-lg">
+                        CHUẨN BỊ...
+                    </div>
+                </div>
+
+                <!-- PLAYER -->
+                <div class="flex-none h-auto w-full flex flex-col justify-end items-center pb-8 relative" id="player-zone">
+                    <div class="flex flex-col items-start mb-4 relative z-10">
+                        <div class="w-fit flex justify-start items-center gap-2 mb-2 ml-6 relative" id="player-hearts-container">
+                            <span class="text-[0.6rem] text-blue-400 font-bold uppercase tracking-widest">BẠN</span>
+                            <div class="flex gap-1 items-center" id="player-hearts"></div>
+                        </div>
+                        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 shadow-xl">
+                            <div class="flex gap-6">
+                                <div class="slot border-blue-500/30" id="p-char" onclick="Actions.playerClickSlot('char')">
+                                    <span class="absolute -top-5 text-[0.6rem] text-blue-400 font-bold">TƯỚNG</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <div class="slot common-mark" id="p-spell1" onclick="Actions.playerClickSlot('spell1')"><span class="slot-label">P.1</span></div>
+                                    <div class="slot rare-mark border-green-500/30" id="p-spell2" onclick="Actions.playerClickSlot('spell2')"><span class="slot-label">P.2</span></div>
+                                    <div class="slot legendary-mark border-orange-500/30" id="p-spell3" onclick="Actions.playerClickSlot('spell3')"><span class="slot-label">P.3</span></div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                 </div>
 
-                <!-- GAME LOG - High enough to not overlap cards -->
-                <div class="w-full flex justify-center h-6 relative z-30 mb-2">
-                    <div id="game-log" class="text-[0.65rem] text-gray-400 font-bold bg-black/60 px-4 py-1 rounded-full border border-gray-800 backdrop-blur-sm tracking-wide">Chọn bài trước khi hết giờ!</div>
+                    <div class="w-full flex justify-center h-8 relative z-30 mb-2">
+                        <div id="game-log" class="text-[0.6rem] text-gray-400 font-bold bg-black/60 px-4 py-1 rounded-full border border-gray-800 backdrop-blur-sm">Magic Cards</div>
+                    </div>
+
+                    <div id="player-hand" class="pb-2"></div>
                 </div>
-
-                <!-- HAND - Padding Bottom increased to lift cards up -->
-                <div id="player-hand" class="pb-4"></div>
             </div>
-        </div>
 
-        <div id="modal" class="hidden flex items-center justify-center">
-            <div class="text-center p-8 border-2 border-yellow-500/50 rounded-xl bg-slate-900 shadow-2xl">
-                <h2 id="modal-title" class="text-6xl font-magic mb-8 text-yellow-400">VICTORY</h2>
-                <button onclick="location.reload()" class="bg-white text-black font-bold py-4 px-12 rounded-full hover:bg-gray-200 text-xl tracking-wider transition-all">CHƠI LẠI</button>
+            <div id="modal" class="hidden flex items-center justify-center">
+                <div class="text-center p-8 border-2 border-yellow-500/50 rounded-xl bg-slate-900 shadow-2xl">
+                    <h2 id="modal-title" class="text-6xl font-magic mb-8 text-yellow-400">VICTORY</h2>
+                    <button onclick="location.reload()" class="bg-white text-black font-bold py-4 px-12 rounded-full hover:bg-gray-200 text-xl tracking-wider transition-all">CHƠI LẠI</button>
+                </div>
             </div>
         </div>
     </div>
@@ -264,14 +254,14 @@
     <script>
         const CONFIG = { TURN_TIME: 5.0, BASE_PW: 5, HEARTS: 3 };
         const RARITY = { COMMON: 'common', RARE: 'rare', LEGENDARY: 'legendary' };
-        const ELEMENTS = { ROCK: 'rock', PAPER: 'paper', SCISSORS: 'scissors', NONE: 'none' };
+        const ELEMENTS = { FIRE: 'fire', WOOD: 'wood', WATER: 'water', NONE: 'none' };
         const TYPES = { CHAR: 'char', SPELL: 'spell' };
 
         const ELEMENT_MATRIX = {
-            [ELEMENTS.ROCK]: { [ELEMENTS.SCISSORS]: 1, [ELEMENTS.PAPER]: -1, [ELEMENTS.ROCK]: 0, [ELEMENTS.NONE]: 0 },
-            [ELEMENTS.PAPER]: { [ELEMENTS.ROCK]: 1, [ELEMENTS.SCISSORS]: -1, [ELEMENTS.PAPER]: 0, [ELEMENTS.NONE]: 0 },
-            [ELEMENTS.SCISSORS]: { [ELEMENTS.PAPER]: 1, [ELEMENTS.ROCK]: -1, [ELEMENTS.SCISSORS]: 0, [ELEMENTS.NONE]: 0 },
-            [ELEMENTS.NONE]: { [ELEMENTS.PAPER]: 0, [ELEMENTS.ROCK]: 0, [ELEMENTS.SCISSORS]: 0, [ELEMENTS.NONE]: 0 }
+            [ELEMENTS.FIRE]: { [ELEMENTS.WOOD]: 1, [ELEMENTS.WATER]: -1, [ELEMENTS.FIRE]: 0, [ELEMENTS.NONE]: 0 },
+            [ELEMENTS.WOOD]: { [ELEMENTS.WATER]: 1, [ELEMENTS.FIRE]: -1, [ELEMENTS.WOOD]: 0, [ELEMENTS.NONE]: 0 },
+            [ELEMENTS.WATER]: { [ELEMENTS.FIRE]: 1, [ELEMENTS.WOOD]: -1, [ELEMENTS.WATER]: 0, [ELEMENTS.NONE]: 0 },
+            [ELEMENTS.NONE]: { [ELEMENTS.FIRE]: 0, [ELEMENTS.WOOD]: 0, [ELEMENTS.WATER]: 0, [ELEMENTS.NONE]: 0 }
         };
 
         const PHASES = [
@@ -286,26 +276,35 @@
             { id: 8, owner: null,     slot: null,     msg: 'GIAO CHIẾN...' }
         ];
 
+        /* --- UPDATED DATABASE v1.8e --- */
         const CARD_DATABASE = {
             CHARACTERS: [
-                { id: 'c_r_1', name: 'Búa Sắt', element: ELEMENTS.ROCK, rarity: RARITY.COMMON, power: 5, icon: 'fa-hand-rock', color: 'text-red-500' },
-                { id: 'c_p_1', name: 'Bao Vải', element: ELEMENTS.PAPER, rarity: RARITY.COMMON, power: 5, icon: 'fa-hand', color: 'text-blue-500' },
-                { id: 'c_s_1', name: 'Kéo Gỗ', element: ELEMENTS.SCISSORS, rarity: RARITY.COMMON, power: 5, icon: 'fa-hand-scissors', color: 'text-green-500' },
+                { id: 'c_fire', name: 'Hỏa Thần', element: ELEMENTS.FIRE, rarity: RARITY.COMMON, power: 5, icon: 'fa-fire', color: 'text-red-500' },
+                { id: 'c_wood', name: 'Mộc Tinh', element: ELEMENTS.WOOD, rarity: RARITY.COMMON, power: 5, icon: 'fa-tree', color: 'text-green-500' },
+                { id: 'c_water', name: 'Thủy Quái', element: ELEMENTS.WATER, rarity: RARITY.COMMON, power: 5, icon: 'fa-droplet', color: 'text-blue-500' },
                 { id: 'c_slime', name: 'Slime', element: ELEMENTS.NONE, rarity: RARITY.RARE, power: 6, icon: 'fa-certificate', color: 'text-gray-300' },
-                { id: 'c_dragon', name: 'Rồng Già', element: ELEMENTS.NONE, rarity: RARITY.LEGENDARY, power: 7, icon: 'fa-dragon', color: 'text-gray-100' }
+                { id: 'c_dragon', name: 'Rồng Già', element: ELEMENTS.NONE, rarity: RARITY.LEGENDARY, power: 7, icon: 'fa-dragon', color: 'text-gray-100' },
+                { id: 'sun', name: 'Mặt Trời', element: ELEMENTS.FIRE, rarity: RARITY.LEGENDARY, power: 3, icon: 'fa-sun', color: 'text-yellow-500', timing: 'IMMEDIATE', code: 'INSTANT_SUN' }
             ],
             SPELLS: [
-                { id: 'buff1', name: 'Tăng Cường', val: 1, effectType: 'buff', desc: '+1 PW Tướng', rarity: RARITY.COMMON },
-                { id: 'nerf1', name: 'Suy Yếu', val: 1, effectType: 'nerf', desc: '-1 PW Địch', rarity: RARITY.COMMON },
-                { id: 'draw1', name: 'Rút Bài', val: 1, effectType: 'draw1', desc: '+1 Bài', rarity: RARITY.COMMON },
-                { id: 'buff2', name: 'Cường Hoá', val: 2, effectType: 'buff', desc: '+2 PW Tướng', rarity: RARITY.RARE },
-                { id: 'nerf2', name: 'Suy Nhược', val: 2, effectType: 'nerf', desc: '-2 PW Địch', rarity: RARITY.RARE },
-                { id: 'draw2', name: 'Bốc Bài', val: 2, effectType: 'draw2', desc: '+2 Bài, -1 Rác', rarity: RARITY.RARE },
-                { id: 'shield', name: 'Bảo Hộ', effectType: 'shield', desc: 'Kháng Trừ PW', rarity: RARITY.LEGENDARY },
-                { id: 'heal', name: 'Hồi Máu', effectType: 'heal', desc: '+1 Tim (Max 3)', rarity: RARITY.LEGENDARY },
-                { id: 'empower', name: 'Khếch Đại', effectType: 'double_pw', desc: 'x2 PW Tướng', rarity: RARITY.LEGENDARY },
-                { id: 'god_draw', name: 'Thần Bài', val: 2, effectType: 'god_draw', desc: '+2 Bài, Phá Địch', rarity: RARITY.LEGENDARY },
-                { id: 'curse', name: 'Nguyền Rủa', effectType: 'halve_pw', desc: 'Chia đôi PW Địch', rarity: RARITY.LEGENDARY }
+                { id: 'buff1', name: 'Tăng Cường', val: 1, code: 'BUFF', desc: '+1 PW Tướng', rarity: RARITY.COMMON, timing: 'BATTLE' },
+                { id: 'nerf1', name: 'Suy Yếu', val: 1, code: 'NERF', desc: '-1 PW Địch', rarity: RARITY.COMMON, timing: 'BATTLE' },
+                
+                { id: 'buff2', name: 'Cường Hoá', val: 2, code: 'BUFF', desc: '+2 PW Tướng', rarity: RARITY.RARE, timing: 'BATTLE' },
+                { id: 'nerf2', name: 'Suy Nhược', val: 2, code: 'NERF', desc: '-2 PW Địch', rarity: RARITY.RARE, timing: 'BATTLE' },
+                
+                { id: 'draw2', name: 'Bốc Bài', val: 2, code: 'DRAW', desc: 'Rút 2 lá', rarity: RARITY.RARE, timing: 'BATTLE' },
+                
+                { id: 'shield', name: 'Bảo Hộ', code: 'SHIELD', desc: 'Kháng Trừ PW', rarity: RARITY.LEGENDARY, timing: 'BATTLE' },
+                /* BUFF: Heal +2 */
+                { id: 'heal', name: 'Hồi Máu', code: 'HEAL', desc: '+2 Tim (Max 3)', rarity: RARITY.LEGENDARY, timing: 'BATTLE' },
+                { id: 'empower', name: 'Khếch Đại', code: 'EMPOWER', desc: 'x2 PW Tướng', rarity: RARITY.LEGENDARY, timing: 'BATTLE' },
+                { id: 'god_draw', name: 'Thần Bài', val: 2, code: 'GOD_DRAW', desc: 'Rút 2, Phá 2 Địch', rarity: RARITY.LEGENDARY, timing: 'BATTLE' },
+                { id: 'curse', name: 'Nguyền Rủa', code: 'CURSE', desc: 'Chia đôi PW Địch', rarity: RARITY.LEGENDARY, timing: 'BATTLE' },
+
+                /* NERF & RENAME */
+                { id: 'fireball', name: 'Sấm Chớp', val: 1, code: 'INSTANT_DMG', desc: 'Gây 1 ST Ngay', rarity: RARITY.LEGENDARY, timing: 'IMMEDIATE' },
+                { id: 'potion', name: 'Thuốc Tiên', val: 1, code: 'INSTANT_HEAL', desc: 'Hồi 1 HP Ngay', rarity: RARITY.LEGENDARY, timing: 'IMMEDIATE' }
             ]
         };
 
@@ -319,48 +318,100 @@
             isRunning: false
         };
 
+        const EffectSystem = {
+            DRAW: (owner, count) => { Battle.applyDrawEffect(owner, count, 0); },
+            GOD_DRAW: (owner, count, domId) => { 
+                // Draw 2 for Owner
+                Battle.applyDrawEffect(owner, count, 0); 
+                // Discard 2 from Opponent
+                Battle.applyDrawEffect(owner==='player'?'enemy':'player', 0, 2, false); // Target opponent properly
+                
+                // Add FX
+                if(domId) {
+                    FX.triggerCardParticles(domId);
+                }
+            },
+            INSTANT_DMG: (owner, val, domId) => {
+                const target = owner === 'player' ? 'enemy' : 'player';
+                state[target].hearts = Math.max(0, state[target].hearts - val);
+                UI.updateHearts();
+                FX.floatTxt(`${target}-hearts`, `-${val} HP`, "text-red-500");
+                FX.triggerSlash(`${target}-hearts-container`);
+                FX.triggerInstantFlash(domId);
+            },
+            INSTANT_HEAL: (owner, val, domId) => {
+                state[owner].hearts = Math.min(CONFIG.HEARTS, state[owner].hearts + val);
+                UI.updateHearts();
+                FX.floatTxt(`${owner}-hearts`, `+${val} HP`, "text-green-400");
+                FX.triggerHeal(domId);
+                FX.triggerInstantFlash(domId);
+            },
+            INSTANT_SUN: (owner, val, domId) => {
+                const targetState = state[owner];
+                const legendaryCard = Core.genCard(null, RARITY.LEGENDARY);
+                targetState.hand.push(legendaryCard);
+                
+                if (owner === 'player') UI.updateHand(); 
+                else UI.renderEnemyHand(); // Important: Update AI visual
+                
+                FX.floatTxt(domId, "RÚT HUYỀN THOẠI!", "text-yellow-400 text-xs");
+                FX.triggerSunAura(domId);
+            }
+        };
+
+        function resolveCardEffect(card, owner, domId) {
+            if (!card || !card.code) return;
+            const handler = EffectSystem[card.code];
+            if (handler) {
+                handler(owner, card.val, domId);
+            }
+        }
+
         const Core = {
             init: () => { 
                 Core.dealInitialCards(); 
                 UI.update(); 
                 UI.playStartSequence(); 
-                window.addEventListener('resize', UI.updateHand);
-                
-                // Horizontal Scroll for Hand on PC
+                UI.handleScaling();
+                window.addEventListener('resize', () => { UI.handleScaling(); UI.updateHand(); });
                 const handEl = document.getElementById('player-hand');
-                handEl.addEventListener('wheel', (e) => {
-                    if (e.deltaY !== 0) {
-                        e.preventDefault();
-                        handEl.scrollLeft += e.deltaY;
-                    }
-                });
+                handEl.addEventListener('wheel', (e) => { if (e.deltaY !== 0) { e.preventDefault(); handEl.scrollLeft += e.deltaY; } });
+            },
+            handleScaling: () => {
+                const container = document.getElementById('game-container');
+                const scale = Math.min(window.innerWidth / 480, window.innerHeight / 850, 1.2); 
+                container.style.transform = `scale(${scale})`;
             },
             dealInitialCards: () => {
                 state.player.hand = []; state.enemy.hand = [];
                 for(let i=0; i<2; i++) { state.player.hand.push(Core.genCard(TYPES.CHAR)); state.enemy.hand.push(Core.genCard(TYPES.CHAR)); }
                 for(let i=0; i<5; i++) { state.player.hand.push(Core.genCard(TYPES.SPELL)); state.enemy.hand.push(Core.genCard(TYPES.SPELL)); }
             },
-            genCard: (type) => {
-                const r = Math.random();
-                let rarity = RARITY.COMMON;
-                if(r > 0.8) rarity = RARITY.LEGENDARY; else if(r > 0.5) rarity = RARITY.RARE; 
+            genCard: (type, forcedRarity = null) => {
+                let rarity = forcedRarity;
+                if (!rarity) {
+                    const r = Math.random();
+                    rarity = RARITY.COMMON;
+                    if(r > 0.8) rarity = RARITY.LEGENDARY; else if(r > 0.5) rarity = RARITY.RARE; 
+                }
                 const pool = type === TYPES.CHAR ? CARD_DATABASE.CHARACTERS : CARD_DATABASE.SPELLS;
-                const filtered = pool.filter(c => c.rarity === rarity);
-                const template = filtered[Math.floor(Math.random() * filtered.length)] || pool[0];
-                return { ...template, type: type }; 
+                let finalPool = [];
+                if (type) {
+                    finalPool = pool.filter(c => c.rarity === rarity);
+                } else {
+                    const allCards = [...CARD_DATABASE.CHARACTERS, ...CARD_DATABASE.SPELLS];
+                    finalPool = allCards.filter(c => c.rarity === rarity);
+                }
+                if (finalPool.length === 0) finalPool = pool; 
+                const template = finalPool[Math.floor(Math.random() * finalPool.length)] || pool[0];
+                const finalType = type || (CARD_DATABASE.CHARACTERS.some(c=>c.id===template.id) ? TYPES.CHAR : TYPES.SPELL);
+                return { ...template, type: finalType }; 
             },
             gameLoop: (timestamp) => {
                 if(!state.isRunning) return;
-                
-                if(!state.lastFrame) {
-                    state.lastFrame = timestamp;
-                    requestAnimationFrame(Core.gameLoop);
-                    return;
-                }
-
+                if(!state.lastFrame) { state.lastFrame = timestamp; requestAnimationFrame(Core.gameLoop); return; }
                 const dt = (timestamp - state.lastFrame) / 1000;
                 state.lastFrame = timestamp;
-
                 const p = PHASES[state.phaseIdx];
                 if(p.id !== 8) { 
                     state.timer -= dt; UI.updateTimer(p);
@@ -398,14 +449,10 @@
                 if(slotKey!=='char' && card.type!==TYPES.SPELL) return UI.notify("Ô này chỉ đặt PHÉP!", true);
                 if(card.rarity===RARITY.LEGENDARY && slotKey!=='spell3' && slotKey!=='char') return UI.notify("Huyền Thoại chỉ đặt ô số 3!", true);
                 if(card.rarity===RARITY.RARE && slotKey==='spell1') return UI.notify("Bài Hiếm chỉ đặt ở ô 2 hoặc 3!", true);
-                
-                state.player.field[slotKey] = card; 
-                state.player.hand.splice(state.selectedIdx, 1);
-                state.selectedIdx = null; 
-                UI.renderSlot('p', slotKey, card); 
-                UI.updateHand();
-                
+                state.player.field[slotKey] = card; state.player.hand.splice(state.selectedIdx, 1);
+                state.selectedIdx = null; UI.renderSlot('p', slotKey, card); UI.updateHand();
                 if(card.rarity === RARITY.LEGENDARY) FX.triggerLegendary();
+                if(card.timing === 'IMMEDIATE') { resolveCardEffect(card, 'player', `p-${slotKey}`); }
                 state.timer = 999; Core.nextPhase();
             },
             aiMove: (slotKey) => {
@@ -422,7 +469,12 @@
                 if(idx > -1) {
                     const card = hand.splice(idx, 1)[0]; state.enemy.field[slotKey] = card;
                     UI.renderSlot('e', slotKey, card);
+                    
+                    // FIX: Cập nhật hình ảnh bài trên tay địch ngay lập tức
+                    UI.renderEnemyHand();
+
                     if(card.rarity === RARITY.LEGENDARY) FX.triggerLegendary();
+                    if(card.timing === 'IMMEDIATE') { resolveCardEffect(card, 'enemy', `e-${slotKey}`); }
                     UI.notify("Địch đã đặt bài.");
                 } else { UI.notify("Địch bỏ lượt."); }
                 state.timer = 999; Core.nextPhase();
@@ -441,27 +493,25 @@
 
                 for(const step of seq) {
                     const owner = step.o; const field = owner === 'player' ? state.player.field : state.enemy.field; const card = field[step.s];
-                    if(card) {
+                    
+                    if(card && card.timing === 'BATTLE') {
                         const domId = `${owner==='player'?'p':'e'}-${step.s}`;
                         const el = document.getElementById(domId).querySelector('.card');
                         if(el) el.classList.add('active-spell');
 
-                        if(card.effectType === 'shield') { 
-                            const targetCharId = owner==='player' ? 'p-char' : 'e-char';
-                            if(owner==='player') { pShield=true; FX.addShield('p-char'); } else { eShield=true; FX.addShield('e-char'); }
-                            FX.floatTxt(targetCharId, "KHIÊN!", "text-yellow-400");
+                        if(card.code === 'DRAW') { EffectSystem.DRAW(owner, card.val); FX.floatTxt(domId, "RÚT BÀI!", "text-green-400"); }
+                        else if(card.code === 'GOD_DRAW') { EffectSystem.GOD_DRAW(owner, card.val, domId); FX.floatTxt(domId, "THẦN BÀI!", "text-yellow-400"); }
+                        else if(card.code === 'HEAL') { 
+                            // Heal +2 based on balance update
+                            state[owner].hearts = Math.min(CONFIG.HEARTS, state[owner].hearts + 2); 
+                            UI.updateHearts(); FX.triggerHeal(domId); 
+                            FX.floatTxt(owner==='player'?'player-hearts':'enemy-hearts', '+2 TIM', 'text-green-400'); 
                         }
-                        else if(card.effectType === 'heal') { FX.triggerHeal(domId); if(owner==='player') state.player.hearts = Math.min(3, state.player.hearts+1); else state.enemy.hearts = Math.min(3, state.enemy.hearts+1); UI.updateHearts(); FX.floatTxt(owner==='player'?'player-hearts':'enemy-hearts', '+1 TIM', 'text-green-400'); }
-                        else if(card.effectType === 'double_pw') { FX.triggerEmpower(owner==='player'?'p-char':'e-char'); if(owner==='player' && pC) pPW *= 2; else if(owner==='enemy' && eC) ePW *= 2; FX.floatTxt(domId, "X2 POWER", "text-red-500"); }
-                        else if(card.effectType === 'halve_pw') { FX.floatTxt(domId, "/2 POWER", "text-purple-500"); const tShield = owner==='player'?eShield:pShield; const tChar = owner==='player'?'e-char':'p-char'; if(tShield) FX.floatTxt(tChar, "KHÁNG", "text-gray-400"); else { FX.triggerCurse(tChar); if(owner==='player') ePW=Math.ceil(ePW/2); else pPW=Math.ceil(pPW/2); } }
-                        else if(card.effectType === 'buff') { if(owner==='player'&&pC) pPW+=card.val; else if(owner==='enemy'&&eC) ePW+=card.val; FX.floatTxt(domId, `+${card.val}`, "text-blue-400"); }
-                        else if(card.effectType === 'nerf') { const tShield = owner==='player'?eShield:pShield; const tChar = owner==='player'?'e-char':'p-char'; if(tShield) FX.floatTxt(tChar, "KHÁNG", "text-gray-400"); else { if(owner==='player') ePW-=card.val; else pPW-=card.val; FX.floatTxt(tChar, `-${card.val}`, "text-red-500"); } }
-                        else if(card.effectType && (card.effectType.includes('draw') || card.effectType === 'god_draw')) {
-                             if(card.effectType === 'draw1') Battle.applyDrawEffect(owner, 1, 0);
-                             else if(card.effectType === 'draw2') Battle.applyDrawEffect(owner, 2, 1);
-                             else if(card.effectType === 'god_draw') { Battle.applyDrawEffect(owner, 2, 0); Battle.applyDrawEffect(owner==='player'?'enemy':'player', 0, 1, true); }
-                             FX.floatTxt(domId, "RÚT BÀI!", "text-green-400");
-                        }
+                        else if(card.code === 'SHIELD') { if(owner==='player') { pShield=true; FX.addShield('p-char'); } else { eShield=true; FX.addShield('e-char'); } FX.floatTxt(domId, "KHIÊN!", "text-yellow-400"); }
+                        else if(card.code === 'EMPOWER') { FX.triggerEmpower(owner==='player'?'p-char':'e-char'); if(owner==='player' && pC) pPW *= 2; else if(owner==='enemy' && eC) ePW *= 2; FX.floatTxt(domId, "X2 POWER", "text-red-500"); }
+                        else if(card.code === 'CURSE') { FX.floatTxt(domId, "/2 POWER", "text-purple-500"); const tShield = owner==='player'?eShield:pShield; const tChar = owner==='player'?'e-char':'p-char'; if(tShield) FX.floatTxt(tChar, "KHÁNG", "text-gray-400"); else { FX.triggerCurse(tChar); if(owner==='player') ePW=Math.ceil(ePW/2); else pPW=Math.ceil(pPW/2); } }
+                        else if(card.code === 'BUFF') { if(owner==='player'&&pC) pPW+=card.val; else if(owner==='enemy'&&eC) ePW+=card.val; FX.floatTxt(domId, `+${card.val}`, "text-blue-400"); }
+                        else if(card.code === 'NERF') { const tShield = owner==='player'?eShield:pShield; const tChar = owner==='player'?'e-char':'p-char'; if(tShield) FX.floatTxt(tChar, "KHÁNG", "text-gray-400"); else { if(owner==='player') ePW-=card.val; else pPW-=card.val; FX.floatTxt(tChar, `-${card.val}`, "text-red-500"); } }
 
                         await Utils.wait(800);
                         if(el) el.classList.remove('active-spell');
@@ -507,6 +557,11 @@
         };
 
         const UI = {
+            handleScaling: () => {
+                const container = document.getElementById('game-container');
+                const scale = Math.min(window.innerWidth / 480, window.innerHeight / 850, 1.2); 
+                container.style.transform = `scale(${scale})`;
+            },
             update: () => { UI.updateHand(); UI.renderEnemyHand(); UI.updateHearts(); },
             updateHand: () => {
                 const div = document.getElementById('player-hand'); div.innerHTML = '';
@@ -522,9 +577,13 @@
 
                 state.player.hand.forEach((c, i) => {
                     const el = document.createElement('div');
-                    let cls = `card rarity-${c.rarity} `; if(c.type === TYPES.CHAR) cls += `bg-char-${c.element}`;
+                    let cls = `card rarity-${c.rarity} `; 
+                    if(c.type === TYPES.CHAR) cls += `bg-char-${c.element}`;
+                    if(c.timing === 'IMMEDIATE') cls += ' instant-mark'; 
+                    
                     if(state.selectedIdx === i) cls += ' selected';
                     if(myTurn) { if((p.slot==='char' && c.type!==TYPES.CHAR) || (p.slot!=='char' && c.type===TYPES.CHAR)) cls += ' disabled'; } else cls += ' disabled';
+                    
                     if(i > 0 && overlap > 0) el.style.marginLeft = `-${overlap}px`;
                     el.className = cls; el.onclick = () => Actions.selectCard(i); el.innerHTML = UI.getCardHTML(c);
                     div.appendChild(el);
@@ -538,29 +597,47 @@
             renderSlot: (prefix, slot, card) => {
                 const el = document.getElementById(`${prefix}-${slot}`);
                 const label = el.querySelector('.slot-label'); el.innerHTML = ''; if(label) el.appendChild(label);
-                const div = document.createElement('div'); let cls = `card rarity-${card.rarity} `;
+                const div = document.createElement('div'); 
+                let cls = `card rarity-${card.rarity} `;
                 if(card.type === TYPES.CHAR) cls += `bg-char-${card.element}`; 
+                if(card.timing === 'IMMEDIATE') cls += ' instant-mark disabled opacity-50'; 
+                
                 div.className = cls; div.innerHTML = UI.getCardHTML(card); el.appendChild(div);
             },
             getCardHTML: (c) => {
                 if(c.type === TYPES.CHAR) {
-                    let borderClass = 'bar-none';
-                    if(c.element === ELEMENTS.ROCK) borderClass = 'bar-rock';
-                    if(c.element === ELEMENTS.PAPER) borderClass = 'bar-paper';
-                    if(c.element === ELEMENTS.SCISSORS) borderClass = 'bar-scissors';
-                    return `<i class="fas ${c.icon} text-3xl ${c.color}"></i><div class="mt-2 px-1 rounded text-white font-bold text-[0.6rem] w-full text-center ${borderClass}">PW: ${c.power}</div>`;
+                    let headerClass = '', footerClass = '';
+                    if(c.element === ELEMENTS.FIRE) { headerClass = 'header-fire'; footerClass = 'footer-fire'; }
+                    else if(c.element === ELEMENTS.WATER) { headerClass = 'header-water'; footerClass = 'footer-water'; }
+                    else if(c.element === ELEMENTS.WOOD) { headerClass = 'header-wood'; footerClass = 'footer-wood'; }
+
+                    return `
+                        <div class="w-full h-3 ${headerClass} rounded-t-[6px]"></div>
+                        <div class="flex-1 flex items-center justify-center">
+                            <i class="fas ${c.icon} text-3xl ${c.color} drop-shadow-md"></i>
+                        </div>
+                        <div class="w-full ${footerClass} text-white font-bold text-[0.6rem] text-center py-0.5 rounded-b-[6px]">
+                            PW: ${c.power}
+                        </div>
+                    `;
                 } else {
                     let icon = 'fa-scroll'; let col = 'text-green-400';
-                    if(c.rarity === RARITY.LEGENDARY) {
-                        if(c.effectType === 'heal') { icon = 'fa-heart-pulse'; col = 'text-pink-500'; }
-                        else if(c.effectType === 'double_pw') { icon = 'fa-fire'; col = 'text-red-500'; }
-                        else if(c.effectType === 'god_draw') { icon = 'fa-dice-d20'; col = 'text-purple-400'; }
-                        else if(c.effectType === 'halve_pw') { icon = 'fa-ghost'; col = 'text-purple-600'; }
+                    if(c.code === 'INSTANT_DMG') { icon = 'fa-bolt'; col = 'text-yellow-300'; }
+                    else if(c.code === 'INSTANT_HEAL') { icon = 'fa-flask'; col = 'text-pink-400'; }
+                    else if(c.rarity === RARITY.LEGENDARY) {
+                        if(c.code === 'HEAL') { icon = 'fa-heart-pulse'; col = 'text-pink-500'; }
+                        else if(c.code === 'EMPOWER') { icon = 'fa-fire'; col = 'text-red-500'; }
+                        else if(c.code === 'GOD_DRAW') { icon = 'fa-dice-d20'; col = 'text-purple-400'; }
+                        else if(c.code === 'CURSE') { icon = 'fa-ghost'; col = 'text-purple-600'; }
                         else { icon = 'fa-shield-halved'; col = 'text-yellow-500'; }
-                    } else if(c.effectType === 'nerf') col = 'text-red-400';
-                    else if(c.effectType === 'draw1') { icon = 'fa-plus'; col = 'text-blue-300'; }
-                    else if(c.effectType === 'draw2') { return `<div class="flex gap-1 mb-1"><i class="fas fa-plus text-lg text-blue-300"></i><i class="fas fa-plus text-lg text-blue-300"></i></div><div class="text-[0.5rem] font-bold text-gray-300 leading-tight text-center">${c.name}</div>`; }
-                    return `<i class="fas ${icon} text-2xl ${col} mb-1"></i><div class="text-[0.5rem] font-bold text-gray-300 leading-tight text-center px-1">${c.name}</div>`;
+                    } else if(c.code === 'NERF') col = 'text-red-400';
+                    else if(c.code === 'DRAW') { icon = 'fa-plus'; col = 'text-blue-300'; }
+                    
+                    if(c.code === 'DRAW') {
+                         return `<div class="flex gap-1 mb-1"><i class="fas fa-plus text-lg text-blue-300"></i><i class="fas fa-plus text-lg text-blue-300"></i></div><div class="text-[0.5rem] font-bold text-gray-300 leading-tight text-center">${c.name}</div>`;
+                    }
+
+                    return `<i class="fas ${icon} text-2xl ${col} mb-1"></i><div class="text-[0.5rem] font-bold text-gray-300 leading-tight text-center">${c.name}</div>`;
                 }
             },
             highlightSlot: (p) => {
@@ -569,7 +646,7 @@
             },
             updateTimer: (p) => {
                 const path = document.getElementById('timer-path');
-                const pct = Math.max(0, state.timer) / CONFIG.TURN_TIME; path.style.strokeDashoffset = 126 * (1 - pct);
+                const pct = Math.max(0, state.timer) / CONFIG.TURN_TIME; path.style.strokeDashoffset = 176 * (1 - pct);
                 document.getElementById('phase-badge').innerText = p.msg;
                 path.setAttribute('class', p.owner === 'player' ? 'timer-path color-green' : 'timer-path color-red');
             },
@@ -581,11 +658,7 @@
                 };
                 h('player-hearts', state.player.hearts); h('enemy-hearts', state.enemy.hearts);
             },
-            notify: (m, err=false) => { 
-                const el = document.getElementById('game-log'); 
-                el.innerText = m; 
-                el.className = err ? "text-[0.65rem] text-red-400 font-bold animate-pulse backdrop-blur-sm bg-black/40 px-4 py-1 rounded-full border border-gray-800" : "text-[0.65rem] text-gray-400 font-bold bg-black/40 px-4 py-1 rounded-full border border-gray-800 backdrop-blur-sm tracking-wide"; 
-            },
+            notify: (m, err=false) => { const el = document.getElementById('game-log'); el.innerText = m; el.className = err ? "text-[0.65rem] text-red-400 font-bold animate-pulse backdrop-blur-sm bg-black/40 px-4 py-1 rounded-full border border-gray-800" : "text-[0.65rem] text-gray-400 font-bold bg-black/40 px-4 py-1 rounded-full border border-gray-800 backdrop-blur-sm tracking-wide"; },
             playStartSequence: async () => {
                 const overlay = document.getElementById('start-overlay'); const text = document.getElementById('start-text');
                 const show = async (str, t) => { text.innerText = str; text.style.animation='none'; text.offsetHeight; text.style.animation = `popIn ${t/1000}s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`; await Utils.wait(t); }
@@ -610,17 +683,7 @@
                 const a=document.createElement('div'); a.className='empower-aura'; p.appendChild(a); setTimeout(()=>a.remove(),1000);
                 if(!p.querySelector('.empower-overlay')){ const o=document.createElement('div'); o.className='empower-overlay'; p.appendChild(o); }
             },
-            
-            triggerSlash: (zoneId) => { 
-                const zone = document.getElementById(zoneId); 
-                if(!zone) return; 
-                const slash = document.createElement('div'); 
-                slash.className = 'slash-container'; 
-                slash.innerHTML = '<div class="slash-line"></div>'; 
-                zone.appendChild(slash); 
-                setTimeout(() => slash.remove(), 1000); 
-            },
-            
+            triggerSlash: (zoneId) => { const z=document.getElementById(zoneId); if(!z)return; const s=document.createElement('div'); s.className='slash-container'; s.innerHTML='<div class="slash-line"></div>'; z.appendChild(s); setTimeout(()=>s.remove(),1000); },
             triggerCardSpin: (domId) => { const el = document.getElementById(domId).querySelector('.card'); if(el) el.classList.add('card-spin'); },
             triggerCardParticles: (domId) => {
                 const p = document.getElementById(domId); if(!p)return;
@@ -633,9 +696,11 @@
             triggerCurse: (domId) => {
                 const p = document.getElementById(domId); if(!p) return;
                 const ov = document.createElement('div'); ov.className = 'curse-overlay';
-                for(let i=0; i<8; i++) { const l = document.createElement('div'); l.className = 'curse-line'; l.style.left = (12 * i + 5) + '%'; l.style.animationDelay = (Math.random()*0.3)+'s'; ov.appendChild(l); }
+                for(let i=0; i<8; i++) { const l = document.createElement('div'); l.className = 'curse-line'; l.style.left = (15 * i + 5) + '%'; l.style.animationDelay = (Math.random() * 0.5) + 's'; ov.appendChild(l); }
                 p.appendChild(ov);
-            }
+            },
+            triggerInstantFlash: (domId) => { const p = document.getElementById(domId); if(!p) return; const f = document.createElement('div'); f.className = 'instant-flash'; p.appendChild(f); setTimeout(() => f.remove(), 200); },
+            triggerSunAura: (domId) => { const p = document.getElementById(domId); if(!p)return; const a = document.createElement('div'); a.className='sun-aura'; p.appendChild(a); setTimeout(()=>a.remove(),1000); }
         };
 
         const Utils = { wait: (ms) => new Promise(r => setTimeout(r, ms)), genCard: (t) => Core.genCard(t) };
@@ -643,4 +708,3 @@
     </script>
 </body>
 </html>
-
